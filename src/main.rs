@@ -40,15 +40,13 @@ fn main() {
 
 struct Converter {
     hex_pattern: Regex,
-    hex_strict_pattern: Regex,
     decimal_pattern: Regex,
 }
 
 impl Converter {
     fn new() -> Self {
         Converter {
-            hex_pattern: Regex::new(r"0x[0-9,a-f,A-F]+").unwrap(),
-            hex_strict_pattern: Regex::new(r"^0x[0-9,a-f,A-F]+$").unwrap(),
+            hex_pattern: Regex::new(r"^0x[0-9,a-f,A-F]+$").unwrap(),
             decimal_pattern: Regex::new(r"^[0-9]+$").unwrap(),
         }
     }
@@ -57,29 +55,29 @@ impl Converter {
         if self.hex_pattern.is_match(&value) {
             // Remove the 0x prefix and convert hex to dec
             self.hex_to_dec(&value[2..])
-                .ok_or_else(|| "Invalid hexadecimal number".to_string())
         } else {
             // Convert dec to hex
             self.dec_to_hex(&value)
-                .ok_or_else(|| "Invalid decimal number".to_string())
         }
     }
 
-    fn dec_to_hex(&self, value: &str) -> Option<String> {
-        u64::from_str_radix(value, 10)
-            .ok()
-            .map(|num| format!("0x{:X}", num))
+    fn dec_to_hex(&self, value: &str) -> Result<String, String> {
+        match u64::from_str_radix(value, 10) {
+            Ok(num) => Ok(format!("0x{:X}", num)),
+            Err(_) => Err("Invalid decimal number".to_string()),
+        }
     }
 
-    fn hex_to_dec(&self, value: &str) -> Option<String> {
-        u64::from_str_radix(value, 16)
-            .ok()
-            .map(|num| format!("{}", num))
+    fn hex_to_dec(&self, value: &str) -> Result<String, String> {
+        match u64::from_str_radix(value, 16) {
+            Ok(num) => Ok(format!("{}", num)),
+            Err(_) => Err("Invalid hexadecimal number".to_string()),
+        }
     }
 
     fn convert_hex_mode(&self, value: String) -> Result<String, String> {
         // Check if it's a hexadecimal number
-        if self.hex_strict_pattern.is_match(&value) {
+        if self.hex_pattern.is_match(&value) {
             // Hex input: return as-is
             return Ok(value);
         }
@@ -88,7 +86,6 @@ impl Converter {
         if self.decimal_pattern.is_match(&value) {
             // Decimal input: convert to hex
             self.dec_to_hex(&value)
-                .ok_or_else(|| "Invalid decimal number".to_string())
         } else {
             // Other base: error
             Err("Invalid input: only decimal or hexadecimal numbers are allowed in -x mode".to_string())
@@ -103,10 +100,9 @@ impl Converter {
         }
         
         // Check if it's a hexadecimal number
-        if self.hex_strict_pattern.is_match(&value) {
+        if self.hex_pattern.is_match(&value) {
             // Hex input: convert to dec
             self.hex_to_dec(&value[2..])
-                .ok_or_else(|| "Invalid hexadecimal number".to_string())
         } else {
             // Other base: error
             Err("Invalid input: only decimal or hexadecimal numbers are allowed in -d mode".to_string())
