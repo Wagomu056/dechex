@@ -11,6 +11,10 @@ struct Args {
     /// Convert decimal to hex, return hex as-is (error on other bases)
     #[arg(short = 'x', long = "hex")]
     hex_mode: bool,
+
+    /// Convert hex to decimal, return decimal as-is (error on other bases)
+    #[arg(short = 'd', long = "dec")]
+    dec_mode: bool,
 }
 
 fn main() {
@@ -19,6 +23,8 @@ fn main() {
     
     let result = if args.hex_mode {
         converter.convert_hex_mode(args.value)
+    } else if args.dec_mode {
+        converter.convert_dec_mode(args.value)
     } else {
         converter.convert(args.value)
     };
@@ -88,6 +94,24 @@ impl Converter {
             Err("Invalid input: only decimal or hexadecimal numbers are allowed in -x mode".to_string())
         }
     }
+
+    fn convert_dec_mode(&self, value: String) -> Result<String, String> {
+        // Check if it's a decimal number
+        if self.decimal_pattern.is_match(&value) {
+            // Decimal input: return as-is
+            return Ok(value);
+        }
+        
+        // Check if it's a hexadecimal number
+        if self.hex_strict_pattern.is_match(&value) {
+            // Hex input: convert to dec
+            self.hex_to_dec(&value[2..])
+                .ok_or_else(|| "Invalid hexadecimal number".to_string())
+        } else {
+            // Other base: error
+            Err("Invalid input: only decimal or hexadecimal numbers are allowed in -d mode".to_string())
+        }
+    }
 }
 
 #[cfg(test)]
@@ -140,5 +164,29 @@ mod tests {
     fn test_hex_mode_invalid_format() {
         let converter = Converter::new();
         assert!(converter.convert_hex_mode("abc".to_string()).is_err());
+    }
+
+    #[test]
+    fn test_dec_mode_hex_to_dec() {
+        let converter = Converter::new();
+        assert_eq!(converter.convert_dec_mode("0x1F".to_string()).unwrap(), "31");
+    }
+
+    #[test]
+    fn test_dec_mode_dec_returns_as_is() {
+        let converter = Converter::new();
+        assert_eq!(converter.convert_dec_mode("255".to_string()).unwrap(), "255");
+    }
+
+    #[test]
+    fn test_dec_mode_invalid_base() {
+        let converter = Converter::new();
+        assert!(converter.convert_dec_mode("0b1010".to_string()).is_err());
+    }
+
+    #[test]
+    fn test_dec_mode_invalid_format() {
+        let converter = Converter::new();
+        assert!(converter.convert_dec_mode("abc".to_string()).is_err());
     }
 }
